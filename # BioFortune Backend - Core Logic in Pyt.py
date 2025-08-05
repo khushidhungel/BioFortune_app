@@ -4,6 +4,19 @@
 
 import streamlit as st
 import base64
+import os
+# set your openai API key
+# It's best practice NOT to hardcode your OpenAI API key in the source code.
+# Instead, store your API key securely (e.g., in Streamlit secrets or environment variables).
+
+# For Streamlit Cloud or local secrets:
+# For Gemini API, set the API key for google.generativeai instead of OpenAI:
+import google.generativeai as genai
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+
+# If running locally and not using Streamlit secrets, you can use an environment variable:
+# openai.api_key = os.getenv("OPENAI_API_KEY")
+
 
 # -----------------------------
 # Herbal Remedy Database (Expanded with Many More Symptoms)
@@ -157,7 +170,23 @@ def get_remedy(user_symptom):
         "status": "not_found",
         "message": "Sorry, we could not find a remedy for your symptom. Try describing it differently."
     }
-
+def get_ai_suggestion(symptom):
+    prompt = f"""
+You are a Nepali herbal medicine expert. A user reported this symptom: "{symptom}".
+Suggest a possible Nepali herbal remedy with:
+- Herb name (English and Nepali)
+- Dosage or usage method
+- Pros and cons
+If symptom is critical, advise visiting a doctor.
+Only suggest safe, natural remedies used in traditional Nepali medicine.
+"""
+    try:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        model = genai.GenerativeModel("models/gemini-1.5-pro-latest")
+        response = model.generate_content([prompt])
+        return response.text
+    except Exception as e:
+        return f"⚠️ Error fetching AI response: {e}"
 # -----------------------------
 # Streamlit UI Starts Here
 # -----------------------------
@@ -195,7 +224,12 @@ if st.button("Find Remedy"):
             for c in remedy["cons"]:
                 st.write("- ", c)
         else:
-            st.warning(result["message"])
+           st.warning(result["message"])
+           with st.spinner("Consulting AI for a suggestion..."):
+                ai_response = get_ai_suggestion(user_input)
+                st.markdown("### 🤖 AI Suggested Remedy:")
+                st.write(ai_response)
+
     else:
         st.info("Please enter a symptom to get started.")
 
